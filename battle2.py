@@ -17,8 +17,8 @@ players = []
 # Teams = (Name, Deaths, Kills, Players)
 teams = [['Bannanas',0,0,[0]],['Apples',0,0,[1,2]]]
 
-#up,right,down,left,fire,aim1,aim2
-controls = ((pg.K_w,pg.K_d,pg.K_s,pg.K_a,pg.K_SPACE,pg.K_c,pg.K_v),(pg.K_UP,pg.K_RIGHT,pg.K_DOWN,pg.K_LEFT,pg.K_COMMA,pg.K_n,pg.K_m),(pg.K_i,pg.K_l,pg.K_k,pg.K_j,pg.K_LEFTBRACKET,pg.K_o,pg.K_p))
+#up,right,down,left,fire,aim1,aim2, special
+controls = ((pg.K_w,pg.K_d,pg.K_s,pg.K_a,pg.K_SPACE,pg.K_c,pg.K_v,pg.K_f),(pg.K_UP,pg.K_RIGHT,pg.K_DOWN,pg.K_LEFT,pg.K_COMMA,pg.K_n,pg.K_m,pg.K_RSHIFT),(pg.K_i,pg.K_l,pg.K_k,pg.K_j,pg.K_LEFTBRACKET,pg.K_o,pg.K_p,pg.K_u))
 
 def closest_player(pos,not_included = 0,is_max = False):
     distances = []
@@ -153,12 +153,9 @@ class Bullet:
     def draw(self) -> None:
         draw_circle([self.x,self.y],self.bullet_type.size,self.bullet_type.color)
 
- 
-
-
 
 class Group:
-    def __init__(self,size,max_health,move_speed,drift,reload_time,color,bullet_type) -> None:
+    def __init__(self,size,max_health,move_speed,drift,reload_time,color,bullet_type,special_cooldown) -> None:
         self.size = size
         self.max_health = max_health
         self.move_speed = move_speed
@@ -166,8 +163,12 @@ class Group:
         self.reload_time = reload_time
         self.color = color
         self.fires = bullet_type
-        
+        self.special_cooldown = special_cooldown
+    def use_special(self,player) -> None:
+        if self == shotgun:
+            pass
 
+        
 
 class Player:
     def __str__(self) -> str:
@@ -183,6 +184,7 @@ class Player:
         self.barrel = Vector2()
         self.barrel.from_polar((self.type.size*2,0))
         self.timer = 0
+        self.cool_down = self.type.special_cooldown
     def move(self) -> None:
         if key_down(controls[self.movement][0]):
             self.vel.y += self.type.move_speed
@@ -212,6 +214,8 @@ class Player:
         self.vel.y *= self.type.drift
         if self.timer != 0:
             self.timer -= 1
+        if self.cool_down != 0:
+            self.cool_down -= 1
     def draw(self) -> None:
         draw_circle([self.x,self.y],self.type.size,[i * (self.health/self.type.max_health) for i in self.type.color])
         draw_line([self.x,self.y],[self.x+self.barrel.x,self.y+self.barrel.y],self.type.size//3,[i * (self.health/self.type.max_health) for i in self.type.color])
@@ -221,24 +225,28 @@ class Player:
             self.x = cam_x
             self.y = cam_y
             self.health = self.type.max_health
-            
+    def use_special(self) -> None:
+        if key_down(controls[self.movement][7]):
+            if self.cool_down == 0:
+                self.cool_down = self.type.special_cooldown
+                self.type.use_special(self)
 
 
 
 
 #Bullet Types
 normal_bullet = BulletGroup(10,1,0,10,12,(40,200,40),0.4,240)
-large_bullet = BulletGroup(30,1,0,8,12,(40,60,100),0.1,300)
+large_bullet = BulletGroup(30,1,0,12,20,(40,60,100),0.1,300)
 homing_bullet = BulletGroup(3,1,0,20,10,(20,120,100),0.7,100)
 bullet_spread = BulletGroup(4,10,4,10,8,(150,150,150),0,180)
 mine = BulletGroup(100,1,0,0,100,(240,50,50),0,1000)
 
 #Player Characters
-shotgun = Group(30,60,6,0.4,50,(240,240,40),bullet_spread)
-average_char = Group(25,50,3,0.7,30,(200,30,30),normal_bullet)
-tank = Group(35,100,4,0.7,80,(60,20,200),large_bullet)
-destroyer = Group(20,10,3,0.8,6,(60,255,30),homing_bullet)
-mine_layer = Group(40,110,2,0.6,100,(255,128,20),mine)
+shotgun = Group(30,60,6,0.4,50,(240,240,40),bullet_spread,1200)
+average_char = Group(25,50,3,0.7,30,(200,30,30),normal_bullet,1200)
+tank = Group(40,100,4,0.7,80,(60,20,200),large_bullet,1200)
+destroyer = Group(20,10,3,0.8,6,(60,255,30),homing_bullet,1200)
+mine_layer = Group(40,110,2,0.6,100,(255,128,20),mine,1200)
 
 
 players.append(Player(tank,'Bannanas',0,0,0))
@@ -246,15 +254,12 @@ players.append(Player(tank,'Bannanas',0,0,0))
 players.append(Player(average_char,'Apples',50,50,1))
 
 
-fps = 60
-fps_clock = pg.time.Clock()
-running = True
-while running:
+
+
+def game_tick():
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
-
-
     move_players()
     screen.fill((0,0,0))
     draw_circle((0,0),boundary_size,backdrop)
@@ -268,4 +273,12 @@ while running:
     player_respawn()
     pg.display.update()
     fps_clock.tick(fps)
+
+
+
+fps = 60
+fps_clock = pg.time.Clock()
+running = True
+while running:
+    game_tick()
 pg.quit()
